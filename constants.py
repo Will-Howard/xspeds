@@ -1,4 +1,4 @@
-# IMAGE_WIDTH = 2048
+# IMAGE_HEIGHT = 2048
 # IMAGE_WIDTH = 2048
 
 # smaller image for testing
