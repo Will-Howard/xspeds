@@ -16,7 +16,7 @@ pipenv shell
 pipenv install
 ```
 
-In order for python to find the module when you do e.g. `import xspeds` the `xspeds/` folder needs to be in your PYTHONPATH,
+In order for python to find the module when you do e.g. `import xspeds`, the `xspeds/` folder needs to be in your PYTHONPATH,
 the simplest way to acheive this is to put the code that imports the module in the folder a level above `xspeds/`, another way
 is to add the folder above `xspeds/` to PYTHONPATH directly, on mac this is:
 ```
