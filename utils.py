@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def pol2cart(v):
+def pol_to_cart(v):
     """Convert spherical polar coordinates to cartesian
 
     Args:
@@ -9,6 +9,29 @@ def pol2cart(v):
     """
     r, theta, phi = v
     return np.array([r * np.sin(theta) * np.cos(phi), r * np.sin(theta) * np.sin(phi), r * np.cos(theta)])
+
+def theta_to_lambda(theta):
+    """Convert theta (pi / 2 - Bragg angle) to wavelength (lambda)
+
+    Args:
+        theta ([type]): (pi / 2 - Bragg angle)
+
+    Returns:
+        _lambda: wavelength in units of d
+    """
+    return 2 * np.cos(theta)
+
+def lambda_to_theta(_lambda):
+    """Convert wavelength (lambda) to theta (pi / 2 - Bragg angle)
+
+    Args:
+        _lambda ([type]): wavelength in units of d
+
+    Returns:
+        theta: (pi / 2 - Bragg angle)
+    """
+    return np.arccos(_lambda / 2)
+
 
 def plot_histogram(im, n_bins=100, ax=None):
     pixel_min = min([min(r) for r in im])
