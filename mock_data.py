@@ -1,3 +1,4 @@
+from xspeds import utils
 from xspeds.spectrum import Spectrum
 from xspeds.constants import IMAGE_HEIGHT, IMAGE_WIDTH, X_HAT, Y_HAT, Z_HAT
 import numpy as np
@@ -157,7 +158,7 @@ class MockData:
         return self._hits
 
 
-class MockData:
+class MockData3:
     _hits = None
 
     def __init__(self,
@@ -214,8 +215,9 @@ class MockData:
         self.x_pixel_conversion = self.x_pixels/self.x_width
         self.y_pixel_conversion = self.y_pixels/self.y_width
 
-    def ray_plane_coords(self, ray):
+    def ray_to_plane_coords(self, ray):
         """get the x, y coordinates of where the ray intersects the image plane (in the plane coordinates)
+        TODO change this to do (theta, phi) -> (x, y)
 
         Args:
             ray (np.array): unit vector in the direction of the ray
@@ -229,6 +231,18 @@ class MockData:
         y_image = np.dot((p_int - self.plane_origin), self.plane_y)
 
         return x_image, y_image
+
+    def angle_to_plane_coords(self, theta, phi):
+        # s_theta, c_theta = np.sin(theta), np.cos(theta)
+        # ray = np.array([s_theta * np.cos(phi), s_theta * np.sin(phi), c_theta])
+        ray = utils.sph_to_cart([1, theta, phi])
+
+        return self.ray_to_plane_coords(ray)
+
+    def plane_coords_to_angle(self, x, y):
+        p_int = self.plane_origin + self.plane_x * x + self.plane_y * y
+        theta, phi = utils.cart_to_sph(p_int)[1:]
+        return theta, phi
 
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
         """Generates a mock CCD image by simulating photons hitting the detector
@@ -256,7 +270,7 @@ class MockData:
         for _lambda in spectrum.random_sample(n_photons):
             # theta is 90 - the Bragg angle
             c_theta = _lambda/2  # cos(theta), _lambda is in units of d
-            s_theta = np.sqrt(1 - c_theta**2)
+            s_theta = np.sqrt(1 - c_theta**2)  # note this defines theta < pi / 2 (which is what I want)
 
             phi = np.random.uniform(-np.pi, np.pi)
 
@@ -264,7 +278,7 @@ class MockData:
                 [s_theta * np.cos(phi), s_theta * np.sin(phi), c_theta])
 
             # covert to plane coords
-            x_image, y_image = self.ray_plane_coords(ray)
+            x_image, y_image = self.ray_to_plane_coords(ray)
 
             # check if sample hits detector
             if 0 < x_image < self.x_width and 0 < y_image < self.y_width:
@@ -284,7 +298,7 @@ class MockData:
                 [s_theta * np.cos(phi), s_theta * np.sin(phi), c_theta])
 
             # covert to plane coords
-            x_image, y_image = self.ray_plane_coords(ray)
+            x_image, y_image = self.ray_to_plane_coords(ray)
 
             # check if sample hits detector
             if 0 < x_image < self.x_width and 0 < y_image < self.y_width:

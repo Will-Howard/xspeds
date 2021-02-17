@@ -1,14 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def pol_to_cart(v):
+def sph_to_cart(v):
     """Convert spherical polar coordinates to cartesian
 
     Args:
         v (3 element, array-like): r, theta, phi vector
     """
-    r, theta, phi = v
+    r, theta, phi = v[0], v[1], v[2]
     return np.array([r * np.sin(theta) * np.cos(phi), r * np.sin(theta) * np.sin(phi), r * np.cos(theta)])
+
+def cart_to_sph(v):
+    x, y, z = v[0], v[1], v[2]
+    XsqPlusYsq = x**2 + y**2
+    r = np.sqrt(XsqPlusYsq + z**2)               # r
+    theta = np.arctan2(np.sqrt(XsqPlusYsq), z)     # theta
+    phi = np.arctan2(y, x)                           # phi
+    return np.array([r, theta, phi])
 
 def theta_to_lambda(theta):
     """Convert theta (pi / 2 - Bragg angle) to wavelength (lambda)
