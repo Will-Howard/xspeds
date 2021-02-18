@@ -59,3 +59,32 @@ def plot_histogram(im, n_bins=100, ax=None):
         ax.plot(x, bins)
     else:
         plt.plot(x,bins)
+
+    
+def D(f, wrt_index, args, step_size=0.01):
+    # TODO use a library for this
+
+    f_args = args.copy()
+
+    f_args[wrt_index] = args[wrt_index] + 2 * step_size
+    f2 = np.array(f(*f_args))
+
+    f_args[wrt_index] = args[wrt_index] + step_size
+    f1 = np.array(f(*f_args))
+
+    f_args[wrt_index] = args[wrt_index] - step_size
+    fm1 = np.array(f(*f_args))
+
+    f_args[wrt_index] = args[wrt_index] - 2 * step_size
+    fm2 = np.array(f(*f_args))
+
+
+    f_prime = (-f2 + 8 * f1 - 8 * fm1 + fm2) / (12 * step_size)
+    return f_prime
+
+
+def J(f, args):
+    return np.stack([D(f, i, args) for i in range(len(args))]).T
+
+def detJ(f, args):
+    return np.linalg.det(J(f, args))

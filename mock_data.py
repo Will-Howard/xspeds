@@ -244,6 +244,38 @@ class MockData3:
         theta, phi = utils.cart_to_sph(p_int)[1:]
         return theta, phi
 
+    def pixel_to_plane_coords(self, x_pixel, y_pixel):
+        return x_pixel / self.x_pixel_conversion, y_pixel / self.y_pixel_conversion
+
+    def plane_coords_to_pixel(self, x, y):
+        return x * self.x_pixel_conversion, y * self.y_pixel_conversion
+
+    def pdf(self, spectrum, x, y):
+        """The pdf for this spectrum at x, y in PLANE COORDINATES (not pixels)
+        Note that this is the pdf for the entire (infinite) plane, i.e. it is normalised to 1
+        for x, y from minus inf to plus inf. You may want the pdf, given that the photon hits
+        the detector, for which you will have to integrate over this function to find the
+        normalisation factor
+
+        Args:
+            spectrum ([type]): [description]
+            x ([type]): [description]
+            y ([type]): [description]
+        """
+        # WIP
+        # p(x, y) = p(theta, phi)J(theta, phi)/(x, y)
+        # p(theta, phi) = p(theta) / 2 pi
+        # p(theta) = p(lambda)(d lambda/d theta)
+        theta, _ = self.plane_coords_to_angle(x, y)
+        _lambda = utils.theta_to_lambda(theta)
+
+        p_lambda = spectrum.pdf(_lambda)
+        p_theta = p_lambda * utils.D(utils.theta_to_lambda, 0, args=[theta])
+        p_theta_phi = p_theta / 2 * np.pi
+
+        p_x_y = p_theta_phi * utils.detJ(self.plane_coords_to_angle, args=[x, y])
+        return np.abs(p_x_y)
+
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
         """Generates a mock CCD image by simulating photons hitting the detector
 
