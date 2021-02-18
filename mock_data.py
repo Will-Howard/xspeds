@@ -271,7 +271,7 @@ class MockData3:
 
         p_lambda = spectrum.pdf(_lambda)
         p_theta = p_lambda * utils.D(utils.theta_to_lambda, 0, args=[theta])
-        p_theta_phi = p_theta / 2 * np.pi
+        p_theta_phi = p_theta / (2 * np.pi)
 
         p_x_y = p_theta_phi * utils.detJ(self.plane_coords_to_angle, args=[x, y])
         return np.abs(p_x_y)

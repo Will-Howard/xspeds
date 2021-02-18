@@ -61,7 +61,7 @@ def plot_histogram(im, n_bins=100, ax=None):
         plt.plot(x,bins)
 
     
-def D(f, wrt_index, args, step_size=0.01):
+def D(f, wrt_index, args, step_size=1e-5):
     # TODO use a library for this
 
     f_args = args.copy()
