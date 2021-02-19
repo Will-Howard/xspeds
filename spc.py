@@ -1,4 +1,4 @@
-def find_photons(image, noise_mean=None, noise_std=None):
+def find_photons(image, noise_mean=0.0, noise_std=0.0):
     im = image.T
     width, height = len(im), len(im[0])
     photons = []
@@ -6,6 +6,7 @@ def find_photons(image, noise_mean=None, noise_std=None):
     for i in range(width):
         for j in range(height):
             if im[i][j] > noise_mean + 5 * noise_std:
-                photons.append((i, j))
+                # use the center of the pixel for anti aliasing
+                photons.append((i + 0.5, j + 0.5))
 
     return photons

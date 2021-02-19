@@ -72,7 +72,7 @@ class LineSpectrum(Spectrum):
         self.total_intensity = sum(intensities)
         self.line_funcs = [stats.norm(loc=_lambdas[i], scale=stds[i]) for i in range(len(_lambdas))]
 
-        self.cached_lambdas = np.linspace(0, max(_lambdas) * 2, 1000)
+        self.cached_lambdas = np.linspace(0, max(_lambdas) * 2, 5000)
         self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
 
     def intensity(self, _lambda):

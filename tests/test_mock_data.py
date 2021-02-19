@@ -1,11 +1,11 @@
 from xspeds import utils
 # from xspeds import spectrum
-from xspeds.mock_data import MockData3
+from xspeds.mock_data import MockData
 import numpy as np
 
 def test_coord_conversion():
     w = 1.0
-    m = MockData3(sweep_angle=0.0, deviation_angles=[0.0,0.0,0.0], x_width=w, y_width=w, noise_mean=1.0, noise_std=0.2)
+    m = MockData(sweep_angle=0.0, deviation_angles=[0.0,0.0,0.0], x_width=w, y_width=w, noise_mean=1.0, noise_std=0.2)
     
     for _ in range(100):
         theta = np.random.uniform(0.0, np.pi / 2)
