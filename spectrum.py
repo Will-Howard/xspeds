@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import numpy as np
 from scipy import integrate
+import scipy.stats as stats
 
 class Spectrum:  # TODO is there any benefit to signalling it's abstractness in some way (with a decorator)
     """Abstract class representing a spectrum of radiation
@@ -58,4 +59,37 @@ class InterpolatedSpectrum(Spectrum):
         return integrate.quad(self.pdf, self._min, _lambda, points=self._lambdas)[0]
 
     def inv_cdf(self, p):
+        return np.interp(p, self.cached_cdf, self.cached_lambdas)
+
+class LineSpectrum(Spectrum):
+    """Spectrum class that represents a series of "emission lines"
+    """
+
+    def __init__(self, _lambdas, intensities, stds):
+        if not (len(_lambdas) == len(intensities) == len(stds)):
+            raise ValueError("arrays must be the same length")
+        self._intensities = intensities
+        self.total_intensity = sum(intensities)
+        self.line_funcs = [stats.norm(loc=_lambdas[i], scale=stds[i]) for i in range(len(_lambdas))]
+
+        self.cached_lambdas = np.linspace(0, max(_lambdas) * 2, 5000)
+        self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
+
+    def intensity(self, _lambda):
+        intensity = 0
+        for i in range(len(self.line_funcs)):
+            intensity += self._intensities[i] * self.line_funcs[i].pdf(_lambda)
+        return intensity
+
+    def pdf(self, _lambda):
+        return self.intensity(_lambda) / self.total_intensity
+
+    def cdf(self, _lambda):
+        intensity = 0
+        for i in range(len(self.line_funcs)):
+            intensity += self._intensities[i] * self.line_funcs[i].cdf(_lambda)
+        return intensity / self.total_intensity 
+
+    def inv_cdf(self, p):
+
         return np.interp(p, self.cached_cdf, self.cached_lambdas)
