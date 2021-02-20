@@ -29,6 +29,17 @@ def theta_to_lambda(theta):
     """
     return 2 * np.cos(theta)
 
+def dlambda_dtheta(theta):
+    """Convert theta (pi / 2 - Bragg angle) to wavelength (lambda)
+
+    Args:
+        theta ([type]): (pi / 2 - Bragg angle)
+
+    Returns:
+        _lambda: wavelength in units of d
+    """
+    return -2 * np.sin(theta)
+
 def lambda_to_theta(_lambda):
     """Convert wavelength (lambda) to theta (pi / 2 - Bragg angle)
 
@@ -83,8 +94,27 @@ def D(f, wrt_index, args, step_size=1e-5):
     return f_prime
 
 
-def J(f, args):
-    return np.stack([D(f, i, args) for i in range(len(args))]).T
+def J(f, args, step_size=1e-5):
+    return np.stack([D(f, i, args, step_size) for i in range(len(args))]).T
 
-def detJ(f, args):
-    return np.linalg.det(J(f, args))
+def detJ(f, args, step_size=1e-5):
+    return np.linalg.det(J(f, args, step_size))
+
+
+def find_intersection_params(theta, a, b):
+    # TODO rename this
+    """Find intersection between any ray with zenith angle theta, and the line
+    a + alpha * b. Returns the values of alpha at which intersection occurs
+    (there will be 0, 1, or 2 of these)
+    """
+    t2 = np.tan(theta)**2
+    A = (b[0]**2 + b[1]**2 - t2 * b[2]**2)
+    B = 2 * (b[0]*a[0] + b[1]*a[1] - t2 * b[2]*a[2])
+    C = (a[0]**2 + a[1]**2 - t2 * a[2]**2)
+
+    discrim = B**2 - 4 * A * C
+    if discrim < 0:
+        return []
+    if discrim == 0.0:
+        return [(-B) / (2 * A)]
+    return [(-B + np.sqrt(discrim)) / (2 * A), (-B - np.sqrt(discrim)) / (2 * A)]

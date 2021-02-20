@@ -52,3 +52,17 @@ def test_J():
     assert utils.detJ(f1, args=[x0, y0]) - np.linalg.det(J_exact) < 1e-7
 
     # TODO test a rotation
+
+
+def test_find_intersection():
+    a = np.array([0, 1, 0])
+    b = np.array([0, 0, 1])
+
+    theta = np.random.uniform(0, np.pi / 2)
+    print(1 / np.tan(theta))
+    print(utils.find_intersection_params(theta, a, b))
+
+
+def test_dlambda_dtheta():
+    theta = np.random.uniform(0, 2 * np.pi)
+    assert np.abs(utils.dlambda_dtheta(theta) - utils.D(utils.theta_to_lambda, 0, args=[theta])) < 1e-6
