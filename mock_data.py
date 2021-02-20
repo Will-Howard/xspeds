@@ -125,7 +125,7 @@ class MockData:
         return np.abs(p_x_y)
 
     def pixel_pdf(self, spectrum, x_pixel, y_pixel):
-        J = (self.x_pixel_conversion * self.y_pixel_conversion)
+        J = 1 / (self.x_pixel_conversion * self.y_pixel_conversion)
         return self.pdf(spectrum, *self.pixel_to_plane_coords(x_pixel, y_pixel)) * J
 
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
