@@ -62,8 +62,8 @@ def plot_histogram(im, n_bins=100, ax=None):
     for r in im:
         for c in r:
             _bin = (c - pixel_min) / d
-            if _bin == 100.0:
-                _bin = 99
+            if _bin == n_bins:
+                _bin -= 1
             bins[int(_bin)] += 1
 
     if ax:

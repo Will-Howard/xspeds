@@ -2,6 +2,7 @@ from typing import List, Tuple
 import numpy as np
 from scipy import integrate
 import scipy.stats as stats
+from copy import deepcopy
 
 class Spectrum:  # TODO is there any benefit to signalling it's abstractness in some way (with a decorator)
     """Abstract class representing a spectrum of radiation
@@ -18,12 +19,41 @@ class Spectrum:  # TODO is there any benefit to signalling it's abstractness in 
         
     def intensity(self, _lambda):
         pass
+        
+    def pdf(self, _lambda):
+        pass
 
     def cdf(self, _lambda):
         pass
 
     def inv_cdf(self, percentile):
         pass
+
+class CompoundSpectrum(Spectrum):
+    sub_spectra = []
+
+    def __init__(self, sub_spectra):
+        self.total_intensity = sum([s.total_intensity for s in sub_spectra])
+        self.sub_spectra = deepcopy(sub_spectra)
+
+        self.cached_lambdas = np.linspace(0, 2, 5000)
+        self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
+
+    def intensity(self, _lambda):
+        return sum([s.intensity(_lambda) for s in self.sub_spectra])
+
+    def pdf(self, _lambda):
+        return self.intensity(_lambda) / self.total_intensity
+
+    def cdf(self, _lambda):
+        # average of the cdfs of the subspectra, weighted by intensity
+        return sum([s.total_intensity * s.cdf(_lambda) for s in self.sub_spectra]) / self.total_intensity
+
+    def inv_cdf(self, p):
+        # return sum([s.total_intensity * s.inv_cdf(_lambda) for s in self.sub_spectra]) / self.total_intensity
+        return np.interp(p, self.cached_cdf, self.cached_lambdas)
+
+    
 
 class InterpolatedSpectrum(Spectrum):
     """Simple spectrum class that interpolates from a list of intensity points
@@ -72,6 +102,7 @@ class LineSpectrum(Spectrum):
         self.total_intensity = sum(intensities)
         self.line_funcs = [stats.norm(loc=_lambdas[i], scale=stds[i]) for i in range(len(_lambdas))]
 
+        # TODO speed this up or use a different method (rejection sampling)
         self.cached_lambdas = np.linspace(0, max(_lambdas) * 2, 5000)
         self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
 
@@ -91,5 +122,4 @@ class LineSpectrum(Spectrum):
         return intensity / self.total_intensity 
 
     def inv_cdf(self, p):
-
         return np.interp(p, self.cached_cdf, self.cached_lambdas)

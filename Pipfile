@@ -16,6 +16,7 @@ pylint = "*"
 black = "*"
 pytest = "*"
 pytest-cov = "*"
+sklearn = "*"
 
 [requires]
 python_version = "3.8"
