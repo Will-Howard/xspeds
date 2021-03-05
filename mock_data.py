@@ -3,10 +3,11 @@ from xspeds.spectrum import Spectrum
 from xspeds.constants import IMAGE_HEIGHT, IMAGE_WIDTH, X_HAT, Y_HAT, Z_HAT
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
+import scipy.integrate as integrate
 
 
 class MockData:
-    _hits = None
+    _hits = []
 
     def __init__(self,
                  sweep_angle,
@@ -91,11 +92,96 @@ class MockData:
         theta, phi = utils.cart_to_sph(p_int)[1:]
         return theta, phi
 
+    def plane_coords_to_angle_J(self, x, y):
+        p_int = self.plane_origin + self.plane_x * x + self.plane_y * y
+        r, theta, _ = utils.cart_to_sph(p_int)
+
+        cos_alpha = np.dot(p_int, self.plane_normal) / np.linalg.norm(p_int)
+        return cos_alpha / (r**2 * np.sin(theta))
+
     def pixel_to_plane_coords(self, x_pixel, y_pixel):
         return x_pixel / self.x_pixel_conversion, y_pixel / self.y_pixel_conversion
 
     def plane_coords_to_pixel(self, x, y):
         return x * self.x_pixel_conversion, y * self.y_pixel_conversion
+
+    def contains_plane_coord(self, x, y):
+        return 0 < x < self.x_width and 0 < y < self.y_width
+
+    def find_azi_subtended(self, theta):
+        """TODO rename, subtended isn't the right word
+
+        Args:
+            theta ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+        dphi = 2 * np.pi * 1e-4  # FIXME is this ok?
+
+        lower_x = [self.plane_origin, self.plane_x]
+        lower_y = [self.plane_origin, self.plane_y]
+        upper_x = [self.plane_origin +
+                   self.y_width * self.plane_y, self.plane_x]
+        upper_y = [self.plane_origin +
+                   self.x_width * self.plane_x, self.plane_y]
+
+        # list of PLANE COORDS of points of intersection of the theta-cone and the boundaries
+        intersections = []
+
+        # find the intersection parameters for each boundary and convert to plane coords
+        low_x_int = utils.find_intersection_params(theta, *lower_x)
+        for alpha in low_x_int:
+            if 0.0 < alpha < self.x_width:
+                intersections.append([alpha, 0.0])
+
+        low_y_int = utils.find_intersection_params(theta, *lower_y)
+        for alpha in low_y_int:
+            if 0.0 <= alpha <= self.y_width:
+                intersections.append([0.0, alpha])
+
+        upp_x_int = utils.find_intersection_params(theta, *upper_x)
+        for alpha in upp_x_int:
+            if 0.0 <= alpha <= self.x_width:
+                intersections.append([alpha, self.y_width])
+
+        upp_y_int = utils.find_intersection_params(theta, *upper_y)
+        for alpha in upp_y_int:
+            if 0.0 <= alpha <= self.y_width:
+                intersections.append([self.x_width, alpha])
+
+        phis = []
+        # for each calculate phi, and whether increasing phi takes you outside or inside
+        for i in intersections:
+            _, phi = self.plane_coords_to_angle(*i)
+            x_plus, y_plus = self.angle_to_plane_coords(theta, phi + dphi)
+            going_in = (0 < x_plus < self.x_width and 0 <
+                        y_plus < self.y_width)
+            phis.append([phi, going_in])
+
+        if len(phis) == 0:
+            # ring is either entirely inside or outside the detector
+            x, y = self.angle_to_plane_coords(theta, 0)
+            if self.contains_plane_coord(x, y):
+                return 2 * np.pi
+            else:
+                return 0.0
+
+        # if first angle is going OUT, cycle it to the end so that when the array
+        # is sorted the first is going IN (so the total angle swept out is the alternating difference)
+        first_phi = min(phis, key=lambda p: p[0])
+        if first_phi[1] == False:
+            first_phi[0] += 2 * np.pi
+
+        phis = sorted(phis, key=lambda p: p[0])
+
+        # the length should ALMOST always be even
+        # TODO deal with the case where it is not
+        total_angle = 0.0
+        for i in range(int(len(phis) / 2)):
+            total_angle += phis[2 * i + 1][0] - phis[2 * i][0]
+
+        return total_angle
 
     def pdf(self, spectrum, x, y):
         """The pdf for this spectrum at x, y in PLANE COORDINATES (not pixels)
@@ -117,16 +203,34 @@ class MockData:
         _lambda = utils.theta_to_lambda(theta)
 
         p_lambda = spectrum.pdf(_lambda)
-        p_theta = p_lambda * utils.D(utils.theta_to_lambda, 0, args=[theta])
+        p_theta = p_lambda * utils.dlambda_dtheta(theta)
         p_theta_phi = p_theta / (2 * np.pi)
 
-        p_x_y = p_theta_phi * \
-            utils.detJ(self.plane_coords_to_angle, args=[x, y])
+        # DEBUG
+        # p_x_y_old = p_theta_phi * \
+        #     utils.detJ(self.plane_coords_to_angle, args=[x, y])
+        p_x_y = p_theta_phi * self.plane_coords_to_angle_J(x, y)
         return np.abs(p_x_y)
 
     def pixel_pdf(self, spectrum, x_pixel, y_pixel):
         J = 1 / (self.x_pixel_conversion * self.y_pixel_conversion)
         return self.pdf(spectrum, *self.pixel_to_plane_coords(x_pixel, y_pixel)) * J
+
+    def total_hit_probability(self, spectrum):
+        """Total probability of a photon from the spectrum hitting the detector
+
+        Args:
+            spectrum ([type]): [description]
+        """
+        def pdf_given_hit(_lambda):
+            theta = utils.lambda_to_theta(_lambda)
+            total_angle = self.find_azi_subtended(theta)
+            if total_angle == 0.0:
+                return 0.0
+            else:
+                return (total_angle / (2 * np.pi)) * spectrum.pdf(_lambda)
+
+        return integrate.quad(pdf_given_hit, 0, 2)
 
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
         """Generates a mock CCD image by simulating photons hitting the detector
@@ -194,9 +298,6 @@ class MockData:
         return x_out, y_out
 
     def get_image(self):
-        if self._hits is None:
-            raise AssertionError("Must call run_exposure before get_image")
-
         image = np.random.normal(self.noise_mean, self.noise_std,
                                  (IMAGE_WIDTH, IMAGE_HEIGHT))
 
