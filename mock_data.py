@@ -117,7 +117,7 @@ class MockData:
         Returns:
             [type]: [description]
         """
-        dphi = 2 * np.pi * 1e-4  # FIXME is this ok?
+        dphi = 2 * np.pi * 1e-6  # FIXME is this ok?
 
         lower_x = [self.plane_origin, self.plane_x]
         lower_y = [self.plane_origin, self.plane_y]
