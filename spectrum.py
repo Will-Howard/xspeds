@@ -71,8 +71,8 @@ class InterpolatedSpectrum(Spectrum):
 
         # cache values of the cdf so it can be inverted quickly
         # TODO there is a better way to do this
-        self.cached_lambdas = np.linspace(self._min, self._max, len(self._lambdas)*10)
-        self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
+        self.cached_lambdas = None
+        self.cached_cdf = None
 
 
     def intensity(self, _lambda):
@@ -89,6 +89,11 @@ class InterpolatedSpectrum(Spectrum):
         return integrate.quad(self.pdf, self._min, _lambda, points=self._lambdas)[0]
 
     def inv_cdf(self, p):
+        # Initialise this the first time it is called to save time in the case where only the pdf is needed
+        if self.cached_lambdas == None:
+            self.cached_lambdas = np.linspace(self._min, self._max, len(self._lambdas)*10)
+            self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
+
         return np.interp(p, self.cached_cdf, self.cached_lambdas)
 
 class LineSpectrum(Spectrum):

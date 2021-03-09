@@ -71,6 +71,34 @@ def plot_histogram(im, n_bins=100, ax=None):
     else:
         plt.plot(x,bins)
 
+
+def plot_spectrum(s, xlim=[0,2]):
+    """TODO allow the axes to be passed in
+
+    Args:
+        s ([type]): [description]
+        xlim (list, optional): [description]. Defaults to [0,2].
+    """
+    fig, axs = plt.subplots(4, figsize=(10,20))
+    plt.subplots_adjust(hspace=0.2)
+    # intensity
+    interp_lambdas = np.linspace(xlim[0], xlim[1], 1000)
+    # axs[0].plot(_lambdas, intensities)
+    axs[0].plot(interp_lambdas, [s.intensity(l) for l in interp_lambdas])
+    axs[0].set_title("Intensity")
+    # cdf
+    axs[1].plot(interp_lambdas, [s.cdf(l) for l in interp_lambdas])
+    axs[1].set_title("Cumulative density function")
+    # inverse cdf
+    p = np.linspace(0.01, 0.99, 1000)
+    axs[2].plot(p, [s.inv_cdf(x) for x in p])
+    axs[2].set_title("Inverse cumulative density function (useful for sampling)")
+    # random sample
+    N = 100
+    axs[3].scatter(list(s.random_sample(N)), [1] * N, s=1)
+    axs[3].set_title("Random sample")
+    axs[3].set_xlim([xlim[0], xlim[1]])
+
     
 def D(f, wrt_index, args, step_size=1e-5):
     # TODO use a library for this
