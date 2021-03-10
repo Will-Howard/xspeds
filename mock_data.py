@@ -105,10 +105,15 @@ class MockData:
     def plane_coords_to_pixel(self, x, y):
         return x * self.x_pixel_conversion, y * self.y_pixel_conversion
 
-    def contains_plane_coord(self, x, y):
-        return 0 < x < self.x_width and 0 < y < self.y_width
+    def contains_plane_coord(self, x, y, x_bounds=None, y_bounds=None):
+        if x_bounds is None:
+            x_bounds = (0, self.x_width)
+        if y_bounds is None:
+            y_bounds = (0, self.y_width)
 
-    def find_azi_subtended(self, theta):
+        return x_bounds[0] < x < x_bounds[1] and y_bounds[0] < y < y_bounds[1]
+
+    def find_azi_subtended(self, theta, x_bounds, y_bounds):
         """TODO rename, subtended isn't the right word
 
         Args:
@@ -119,12 +124,16 @@ class MockData:
         """
         dphi = 2 * np.pi * 1e-6  # FIXME is this ok?
 
-        lower_x = [self.plane_origin, self.plane_x]
-        lower_y = [self.plane_origin, self.plane_y]
-        upper_x = [self.plane_origin +
-                   self.y_width * self.plane_y, self.plane_x]
-        upper_y = [self.plane_origin +
-                   self.x_width * self.plane_x, self.plane_y]
+        origin_displacement = x_bounds[0] * self.plane_x + y_bounds[0] * self.plane_y
+        lower_x = [self.plane_origin + origin_displacement, self.plane_x]
+        lower_y = [self.plane_origin + origin_displacement, self.plane_y]
+        upper_x = [self.plane_origin + x_bounds[0] * self.plane_x +
+                   y_bounds[1] * self.plane_y, self.plane_x]
+        upper_y = [self.plane_origin + y_bounds[0] * self.plane_y +
+                   x_bounds[1] * self.plane_x, self.plane_y]
+
+        delta_x_bounds = x_bounds[1] - x_bounds[0]
+        delta_y_bounds = y_bounds[1] - y_bounds[0]
 
         # list of PLANE COORDS of points of intersection of the theta-cone and the boundaries
         intersections = []
@@ -132,37 +141,38 @@ class MockData:
         # find the intersection parameters for each boundary and convert to plane coords
         low_x_int = utils.find_intersection_params(theta, *lower_x)
         for alpha in low_x_int:
-            if 0.0 < alpha < self.x_width:
-                intersections.append([alpha, 0.0])
+            if 0.0 < alpha < delta_x_bounds:
+                intersections.append([x_bounds[0] + alpha, y_bounds[0]])
 
         low_y_int = utils.find_intersection_params(theta, *lower_y)
         for alpha in low_y_int:
-            if 0.0 <= alpha <= self.y_width:
-                intersections.append([0.0, alpha])
+            if 0.0 <= alpha <= delta_y_bounds:
+                intersections.append([x_bounds[0], y_bounds[0] + alpha])
 
         upp_x_int = utils.find_intersection_params(theta, *upper_x)
         for alpha in upp_x_int:
-            if 0.0 <= alpha <= self.x_width:
-                intersections.append([alpha, self.y_width])
+            if 0.0 <= alpha <= delta_x_bounds:
+                intersections.append([x_bounds[0] + alpha, y_bounds[1]])
 
         upp_y_int = utils.find_intersection_params(theta, *upper_y)
         for alpha in upp_y_int:
-            if 0.0 <= alpha <= self.y_width:
-                intersections.append([self.x_width, alpha])
+            if 0.0 <= alpha <= delta_y_bounds:
+                intersections.append([x_bounds[1], y_bounds[0] + alpha])
 
         phis = []
+        # print(intersections)
         # for each calculate phi, and whether increasing phi takes you outside or inside
         for i in intersections:
             _, phi = self.plane_coords_to_angle(*i)
             x_plus, y_plus = self.angle_to_plane_coords(theta, phi + dphi)
-            going_in = (0 < x_plus < self.x_width and 0 <
-                        y_plus < self.y_width)
+            going_in = (x_bounds[0] < x_plus < x_bounds[1] and y_bounds[0] <
+                        y_plus < y_bounds[1])
             phis.append([phi, going_in])
 
         if len(phis) == 0:
             # ring is either entirely inside or outside the detector
             x, y = self.angle_to_plane_coords(theta, 0)
-            if self.contains_plane_coord(x, y):
+            if self.contains_plane_coord(x, y, x_bounds, y_bounds):
                 return 2 * np.pi
             else:
                 return 0.0
@@ -216,21 +226,35 @@ class MockData:
         J = 1 / (self.x_pixel_conversion * self.y_pixel_conversion)
         return self.pdf(spectrum, *self.pixel_to_plane_coords(x_pixel, y_pixel)) * J
 
-    def total_hit_probability(self, spectrum):
+    def total_hit_probability(self, spectrum, x_bounds=None, y_bounds=None):
         """Total probability of a photon from the spectrum hitting the detector
 
         Args:
             spectrum ([type]): [description]
         """
+        if x_bounds is None:
+            x_bounds = (0, self.x_width)
+        if y_bounds is None:
+            y_bounds = (0, self.y_width)
+
         def pdf_given_hit(_lambda):
             theta = utils.lambda_to_theta(_lambda)
-            total_angle = self.find_azi_subtended(theta)
+            total_angle = self.find_azi_subtended(theta, x_bounds, y_bounds)
             if total_angle == 0.0:
                 return 0.0
             else:
                 return (total_angle / (2 * np.pi)) * spectrum.pdf(_lambda)
 
-        return integrate.quad(pdf_given_hit, 0, 2)
+        # roughly where the azimuth subtended goes from zero to non-zero
+        # without these it will think the function is 0 everywhere
+        break_points = []
+        for x in x_bounds:
+            for y in y_bounds:
+                theta, _ = self.plane_coords_to_angle(x, y)
+                break_points.append(utils.theta_to_lambda(theta))
+
+
+        return integrate.quad(pdf_given_hit, 0, 2, points=break_points)
 
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
         """Generates a mock CCD image by simulating photons hitting the detector
