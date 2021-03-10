@@ -104,12 +104,13 @@ class LineSpectrum(Spectrum):
         if not (len(_lambdas) == len(intensities) == len(stds)):
             raise ValueError("arrays must be the same length")
         self._intensities = intensities
+        self._lambdas = _lambdas
         self.total_intensity = sum(intensities)
         self.line_funcs = [stats.norm(loc=_lambdas[i], scale=stds[i]) for i in range(len(_lambdas))]
 
         # TODO speed this up or use a different method (rejection sampling)
-        self.cached_lambdas = np.linspace(0, max(_lambdas) * 2, 5000)
-        self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
+        self.cached_lambdas = None
+        self.cached_cdf = None
 
     def intensity(self, _lambda):
         intensity = 0
@@ -127,4 +128,7 @@ class LineSpectrum(Spectrum):
         return intensity / self.total_intensity 
 
     def inv_cdf(self, p):
+        if self.cached_lambdas is None:
+            self.cached_lambdas = np.linspace(0, 2 * max(self._lambdas), 5000)
+            self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
         return np.interp(p, self.cached_cdf, self.cached_lambdas)
