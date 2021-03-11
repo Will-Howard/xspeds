@@ -90,7 +90,7 @@ class InterpolatedSpectrum(Spectrum):
 
     def inv_cdf(self, p):
         # Initialise this the first time it is called to save time in the case where only the pdf is needed
-        if self.cached_lambdas == None:
+        if self.cached_lambdas is None:
             self.cached_lambdas = np.linspace(self._min, self._max, len(self._lambdas)*10)
             self.cached_cdf = [self.cdf(l) for l in self.cached_lambdas]
 

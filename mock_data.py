@@ -4,6 +4,8 @@ from xspeds.constants import IMAGE_HEIGHT, IMAGE_WIDTH, X_HAT, Y_HAT, Z_HAT
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 import scipy.integrate as integrate
+from scipy.optimize import root_scalar
+
 
 
 class MockData:
@@ -255,6 +257,64 @@ class MockData:
 
 
         return integrate.quad(pdf_given_hit, 0, 2, points=break_points)
+
+    def total_hit_probability_mod(self, spectrum, x_bounds=None, y_bounds=None):
+        """Total probability of a photon from the spectrum hitting the detector
+
+        Args:
+            spectrum ([type]): [description]
+        """
+        if x_bounds is None:
+            x_bounds = (0, self.x_width)
+        if y_bounds is None:
+            y_bounds = (0, self.y_width)
+
+        # def pdf_given_hit(_lambda):
+        #     theta = utils.lambda_to_theta(_lambda)
+        #     total_angle = self.find_azi_subtended(theta, x_bounds, y_bounds)
+        #     if total_angle == 0.0:
+        #         return 0.0
+        #     else:
+        #         return (total_angle / (2 * np.pi)) * spectrum.pdf(_lambda)
+
+        # find the boundaries of find_azi_subtended
+        mid_point = 0  # any point where the function is non-zero
+        found = False
+        for x in x_bounds:
+            for y in y_bounds:
+                theta, _ = self.plane_coords_to_angle(x, y)
+                #  FIXME is this guaranteed to work? 
+                if self.find_azi_subtended(theta, x_bounds, y_bounds) > 0:
+                    mid_point = theta
+                    found = True
+                    break
+            if found:
+                break
+
+        def root_func(theta):
+            azi = self.find_azi_subtended(theta, x_bounds, y_bounds)
+            return azi if azi != 0 else -1
+
+        if np.sign(root_func(1e-4)) == np.sign(root_func(mid_point)):
+            print("error")
+            print(mid_point)
+            print(root_func(1e-4))
+            print(root_func(mid_point))
+            return self.total_hit_probability(spectrum, x_bounds, y_bounds)
+            
+        theta_low = root_scalar(root_func, bracket=[1e-4, mid_point], method='brentq').root
+        theta_high = root_scalar(root_func, bracket=[mid_point, np.pi / 2], method='brentq').root
+
+        n_points = 20
+        sample_points = np.linspace(utils.theta_to_lambda(theta_high), utils.theta_to_lambda(theta_low), n_points)
+        midpoints = (sample_points[:-1] + sample_points[1:]) / 2
+
+        sample_cdfs = np.array([spectrum.cdf(l) for l in sample_points])
+        cdf_diffs = np.diff(sample_cdfs)
+        mp_frac_subtended = np.array([self.find_azi_subtended(utils.lambda_to_theta(l), x_bounds, y_bounds) / (2 * np.pi) for l in midpoints])
+
+        prob_product = cdf_diffs * mp_frac_subtended
+        return [sum(prob_product)]
 
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
         """Generates a mock CCD image by simulating photons hitting the detector
