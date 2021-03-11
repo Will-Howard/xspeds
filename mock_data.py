@@ -115,7 +115,7 @@ class MockData:
 
         return x_bounds[0] < x < x_bounds[1] and y_bounds[0] < y < y_bounds[1]
 
-    def find_azi_subtended(self, theta, x_bounds, y_bounds):
+    def find_azi_subtended(self, theta, x_bounds=None, y_bounds=None):
         """TODO rename, subtended isn't the right word
 
         Args:
@@ -124,6 +124,11 @@ class MockData:
         Returns:
             [type]: [description]
         """
+        if x_bounds is None:
+            x_bounds = (0, self.x_width)
+        if y_bounds is None:
+            y_bounds = (0, self.y_width)
+
         dphi = 2 * np.pi * 1e-6  # FIXME is this ok?
 
         origin_displacement = x_bounds[0] * self.plane_x + y_bounds[0] * self.plane_y
@@ -211,17 +216,19 @@ class MockData:
         # p(x, y) = p(theta, phi)J(theta, phi)/(x, y)
         # p(theta, phi) = p(theta) / 2 pi
         # p(theta) = p(lambda)(d lambda/d theta)
-        theta, _ = self.plane_coords_to_angle(x, y)
-        _lambda = utils.theta_to_lambda(theta)
 
-        p_lambda = spectrum.pdf(_lambda)
-        p_theta = p_lambda * utils.dlambda_dtheta(theta)
+        # TODO vectorise whole function (x and y can be vectors)
+        theta, _ = self.plane_coords_to_angle(x, y)
+        _lambda = utils.theta_to_lambda(theta)  # EASY
+
+        p_lambda = spectrum.pdf(_lambda)  # HARD, also slowest part
+        p_theta = p_lambda * utils.dlambda_dtheta(theta)  # EASY
         p_theta_phi = p_theta / (2 * np.pi)
 
         # DEBUG
         # p_x_y_old = p_theta_phi * \
         #     utils.detJ(self.plane_coords_to_angle, args=[x, y])
-        p_x_y = p_theta_phi * self.plane_coords_to_angle_J(x, y)
+        p_x_y = p_theta_phi * self.plane_coords_to_angle_J(x, y)  # HARD
         return np.abs(p_x_y)
 
     def pixel_pdf(self, spectrum, x_pixel, y_pixel):
@@ -301,7 +308,7 @@ class MockData:
             print(root_func(1e-4))
             print(root_func(mid_point))
             return self.total_hit_probability(spectrum, x_bounds, y_bounds)
-            
+
         theta_low = root_scalar(root_func, bracket=[1e-4, mid_point], method='brentq').root
         theta_high = root_scalar(root_func, bracket=[mid_point, np.pi / 2], method='brentq').root
 

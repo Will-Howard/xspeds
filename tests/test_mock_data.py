@@ -54,8 +54,8 @@ def test_azi_subtended():
     calc_angle = m.find_azi_subtended(cone_angle)
     assert calc_angle == 0.0
 
+# TODO mark this as slow and exclude it
 def test_total_hit_prob():
-    # TODO mark this as slow and exclude it
     w = 0.2
     m = MockData(sweep_angle=0.8, deviation_angles=[0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
