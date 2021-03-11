@@ -76,3 +76,6 @@ def test_J():
     print("numeric_J:", numeric_J)
 
     assert np.abs((calc_J - numeric_J) / numeric_J) < 1e-9
+
+def test_pdf_vectorisation():
+    pass
