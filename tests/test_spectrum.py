@@ -54,7 +54,7 @@ def vectorisation_test(spectrum):
         assert scalar_res[i] == vec_res[i]
 
 def cdf_consistency_test(spectrum):
-    test_lambdas = np.random.uniform(0, 2, 10)
+    test_lambdas = np.random.uniform(0, 2, 2)
 
     for l in test_lambdas:
         cdf = spectrum.cdf(l)

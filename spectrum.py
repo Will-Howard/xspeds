@@ -102,7 +102,13 @@ class InterpolatedSpectrum(Spectrum):
             return 1.0
 
         # TODO use a faster method (but this isn't a bottleneck atm)
-        return integrate.quad(self.pdf, self._min, _lambda, points=self._lambdas)[0]
+        # use interp to get intensity for _lambda
+        # searchsorted in _lambdas to truncate
+        # use np.trapz on truncated array with _lambda intensity added to the end
+        lambda_intensity = self.intensity(_lambda)
+        end_idx = np.searchsorted(self._lambdas, _lambda, side='right')
+        cumul_intensity = np.trapz(list(self._intensities[:end_idx]) + [lambda_intensity], list(self._lambdas[:end_idx]) + [_lambda])
+        return cumul_intensity / self.total_intensity
 
     def inv_cdf(self, p):
         # Initialise this the first time it is called to save time in the case where only the pdf is needed

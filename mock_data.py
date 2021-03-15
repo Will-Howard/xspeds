@@ -90,11 +90,21 @@ class MockData:
         return self.ray_to_plane_coords(ray)
 
     def plane_coords_to_angle(self, x, y):
+        # TODO vectorise this properly, but this is not a bottleneck
+        if isinstance(x, np.ndarray):
+            results = [self.plane_coords_to_angle(x[i], y[i]) for i in range(len(x))]
+            theta = np.array([r[0] for r in results])
+            phi = np.array([r[1] for r in results])
+            return theta, phi
+
         p_int = self.plane_origin + self.plane_x * x + self.plane_y * y
         theta, phi = utils.cart_to_sph(p_int)[1:]
         return theta, phi
 
     def plane_coords_to_angle_J(self, x, y):
+        if isinstance(x, np.ndarray):
+            return np.array([self.plane_coords_to_angle_J(x[i], y[i]) for i in range(len(x))])
+
         p_int = self.plane_origin + self.plane_x * x + self.plane_y * y
         r, theta, _ = utils.cart_to_sph(p_int)
 
@@ -233,7 +243,9 @@ class MockData:
 
     def pixel_pdf(self, spectrum, x_pixel, y_pixel):
         J = 1 / (self.x_pixel_conversion * self.y_pixel_conversion)
-        return self.pdf(spectrum, *self.pixel_to_plane_coords(x_pixel, y_pixel)) * J
+        x, y = self.pixel_to_plane_coords(x_pixel, y_pixel)
+
+        return self.pdf(spectrum, x, y) * J
 
     def total_hit_probability(self, spectrum, x_bounds=None, y_bounds=None):
         """Total probability of a photon from the spectrum hitting the detector
