@@ -1,3 +1,4 @@
+from xspeds.tests.utils import fractional_error
 from xspeds.constants import IMAGE_HEIGHT, IMAGE_WIDTH
 from xspeds.tests.test_spectrum import get_test_compound_spectrum
 from xspeds.spectrum import LineSpectrum
@@ -70,13 +71,21 @@ def test_total_hit_prob():
     m = MockData(sweep_angle=0.8, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
+    # TODO use a less easy example
     spectrum = LineSpectrum([utils.theta_to_lambda(l)
                             for l in [0.8, 0.85]], [1, 2], [0.01, 0.01])
+    
     direct_integration = integrate.dblquad(lambda y, x: m.pixel_pdf(
-        spectrum, x, y), 0.0, m.x_pixels, lambda x: 0.0, lambda x: m.y_pixels, epsabs=1e-2)
+        spectrum, x, y), 0.0, m.x_pixels, lambda x: 0.0, lambda x: m.y_pixels, epsabs=1e-2)[0]
 
-    assert np.abs(m.total_hit_probability(spectrum)[
-                  0] - direct_integration[0]) < 1e-3
+    total_prob = m.total_hit_probability(spectrum)[0]
+    fast_total_prob = m.total_hit_probability_mod(spectrum)[0]
+
+    print(f"total prob: {total_prob}")
+    print(f"fast total prob: {fast_total_prob}")
+
+    assert fractional_error(total_prob, direct_integration) < 1e-4
+    assert fractional_error(fast_total_prob, total_prob) < 1e-4
 
 
 def test_J():

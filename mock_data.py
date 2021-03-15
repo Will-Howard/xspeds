@@ -248,7 +248,8 @@ class MockData:
         return self.pdf(spectrum, x, y) * J
 
     def total_hit_probability(self, spectrum, x_bounds=None, y_bounds=None):
-        """Total probability of a photon from the spectrum hitting the detector
+        """Total probability of a photon from the spectrum hitting the detector.
+        Integrates over theta-phi space
 
         Args:
             spectrum ([type]): [description]
@@ -274,11 +275,23 @@ class MockData:
                 theta, _ = self.plane_coords_to_angle(x, y)
                 break_points.append(utils.theta_to_lambda(theta))
 
-
         return integrate.quad(pdf_given_hit, 0, 2, points=break_points)
 
-    def total_hit_probability_mod(self, spectrum, x_bounds=None, y_bounds=None):
-        """Total probability of a photon from the spectrum hitting the detector
+    def total_hit_probability_mod(self, spectrum, x_bounds=None, y_bounds=None, n_points=20):
+        """Faster approximate calculation of total hit probability.
+        The function integrated over consists of the spectrum pdf multiplied by
+        the azimuth subtended. For the spectrum pdf the cdf can also be calculated
+        quickly, and the azimuth subtended should be almost a step function (or in
+        the worst plausible case a triangle function).
+
+        This function avoids doing the full integral by using a series of midpoint etimates
+        of find_azi_subtended multiplied by differences in the spectrum cdf. It is about 10x
+        faster.
+        
+        It fails through to the full integral in the case where it can't find a
+        non-zero point in find_azi_subtended.
+
+        TODO rename to fast_total_hit_prob
 
         Args:
             spectrum ([type]): [description]
@@ -287,14 +300,6 @@ class MockData:
             x_bounds = (0, self.x_width)
         if y_bounds is None:
             y_bounds = (0, self.y_width)
-
-        # def pdf_given_hit(_lambda):
-        #     theta = utils.lambda_to_theta(_lambda)
-        #     total_angle = self.find_azi_subtended(theta, x_bounds, y_bounds)
-        #     if total_angle == 0.0:
-        #         return 0.0
-        #     else:
-        #         return (total_angle / (2 * np.pi)) * spectrum.pdf(_lambda)
 
         # find the boundaries of find_azi_subtended
         mid_point = 0  # any point where the function is non-zero
@@ -315,16 +320,20 @@ class MockData:
             return azi if azi != 0 else -1
 
         if np.sign(root_func(1e-4)) == np.sign(root_func(mid_point)):
-            print("error")
-            print(mid_point)
-            print(root_func(1e-4))
-            print(root_func(mid_point))
+            # TODO rejig so this is guaranteed not to happen
+            # (atm it almost never happens)
+            # print("error")
+            # print(mid_point)
+            # print(root_func(1e-4))
+            # print(root_func(mid_point))
             return self.total_hit_probability(spectrum, x_bounds, y_bounds)
 
         theta_low = root_scalar(root_func, bracket=[1e-4, mid_point], method='brentq').root
         theta_high = root_scalar(root_func, bracket=[mid_point, np.pi / 2], method='brentq').root
 
-        n_points = 20
+        # TODO dynamically set n_points based on how step-function-like constant find_azi_subtended is
+        # TODO also dynamically set which points to sample based on where the peak is
+
         sample_points = np.linspace(utils.theta_to_lambda(theta_high), utils.theta_to_lambda(theta_low), n_points)
         midpoints = (sample_points[:-1] + sample_points[1:]) / 2
 
@@ -333,6 +342,7 @@ class MockData:
         mp_frac_subtended = np.array([self.find_azi_subtended(utils.lambda_to_theta(l), x_bounds, y_bounds) / (2 * np.pi) for l in midpoints])
 
         prob_product = cdf_diffs * mp_frac_subtended
+        # TODO don't return as a list
         return [sum(prob_product)]
 
     def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
