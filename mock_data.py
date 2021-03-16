@@ -114,6 +114,11 @@ class MockData:
     def pixel_to_plane_coords(self, x_pixel, y_pixel):
         return x_pixel / self.x_pixel_conversion, y_pixel / self.y_pixel_conversion
 
+    def pixel_to_lambda(self, x_pixel, y_pixel):
+        x, y = self.pixel_to_plane_coords(x_pixel, y_pixel)
+        theta, _ = self.plane_coords_to_angle(x, y)
+        return utils.theta_to_lambda(theta)
+
     def plane_coords_to_pixel(self, x, y):
         return x * self.x_pixel_conversion, y * self.y_pixel_conversion
 

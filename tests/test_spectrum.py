@@ -2,9 +2,9 @@ from xspeds.spectrum import LineSpectrum, CompoundSpectrum, InterpolatedSpectrum
 import numpy as np
 from scipy import integrate
 
-def get_test_interp_spectrum():
+def get_test_interp_spectrum(min_intensity=1, max_intensity=10):
     _lambdas = list(sorted(np.random.uniform(0, 2, 10)))
-    points = [(l, np.random.uniform(1, 10)) for l in _lambdas]
+    points = [(l, np.random.uniform(min_intensity, max_intensity)) for l in _lambdas]
     return InterpolatedSpectrum(points)
 
 def get_test_line_spectrum():
