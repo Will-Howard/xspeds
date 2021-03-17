@@ -1,9 +1,9 @@
+from xspeds.constants import DEV_ANGLE_BOUNDS, SWEEP_BOUNDS, WIDTH_BOUNDS
 from xspeds import utils
-from scipy.optimize import fmin
+from scipy.optimize import minimize, least_squares
 from xspeds.mock_data import MockData
 from xspeds.spectrum import CompoundSpectrum, InterpolatedSpectrum, LineSpectrum
 import numpy as np
-import math
 
 fit_background_intensity = 1.0
 fit_background = InterpolatedSpectrum(
@@ -107,9 +107,10 @@ def logL_loss_func(width, sweep_angle, dev_angles, line_energies, line_intensiti
             apply_penalty = True
 
         if apply_penalty:
-            penalty += 0.1 * \
-                rms_distance([line_energies[i]], setup,
-                             [pixel_hits[i]]) * log_l
+            # penalty += 0.1 * \
+            #     residuals([line_energies[i]], setup,
+            #                  [pixel_hits[i]]) * log_l
+            pass
 
     # DEBUG
     global count
@@ -168,8 +169,11 @@ def find_maxL_params(width0, sweep_angle0, dev_angles0, line_intensities0, line_
         p0 += line_intensities0
     if fit_widths:
         p0 += line_widths0
-    p = fmin(loss_func_wrapper, np.array(p0))
+    
+    res = minimize(loss_func_wrapper, np.array(p0), method="Nelder-Mead", jac="3-point")
+    p = res.x
 
+    print(f"Full result: {res}")
     print(f"Resulting params: {p}")
     if return_all:
         return p
@@ -177,15 +181,14 @@ def find_maxL_params(width0, sweep_angle0, dev_angles0, line_intensities0, line_
     if fit_small_angles:
         return p[:5]
     else:
-        return p[:3] + dev_angles0[1:]
+        return np.append(p[:3], dev_angles0[1:])
 
 
-def rms_distance(lambdas, setup, pixel_hits, axis='x'):
-    sum_squares = 0.0
-    N = sum([len(hits) for hits in pixel_hits])
-
-    for i in range(len(lambdas)):
-        _lambda, hits = lambdas[i], pixel_hits[i]
+def residuals(width, sweep_angle, dev_angles, line_energies, pixel_hits, axis='x'):
+    setup = MockData(sweep_angle, dev_angles, x_width=width, y_width=width)
+    residuals = []
+    for i in range(len(line_energies)):
+        _lambda, hits = line_energies[i], pixel_hits[i]
 
         # for each hit
         # calculate its position in 3-space == a
@@ -193,7 +196,6 @@ def rms_distance(lambdas, setup, pixel_hits, axis='x'):
         # do find_intersection_params(theta, a, b)
         # take the smallest one, alpha = abs(min(find_intersection_params(theta, )))
         # multiply by x_pixel_conversion to get number of pixels
-        # add square to sum_squares
 
         theta = utils.lambda_to_theta(_lambda)
         b = setup.plane_x if axis.lower() == 'x' else setup.plane_y
@@ -205,35 +207,22 @@ def rms_distance(lambdas, setup, pixel_hits, axis='x'):
 
             alphas = utils.find_intersection_params(theta, a, b)
             if len(alphas) != 0:
-                sum_squares += (min(alphas) * pixel_conversion) ** 2
+                residuals.append((min(alphas) * pixel_conversion))
             else:
                 # if the line doesn't even intersect then we are way off
-                sum_squares += setup.x_pixels ** 2
+                residuals.append(setup.x_pixels)
 
-    return math.sqrt(sum_squares / N)
+    return np.array(residuals)
 
-
-def rms_loss_func(width, sweep_angle, dev_angles, line_energies, pixel_hits):
+def no_azi_subtended_constraint(theta, width, sweep_angle, dev_angles):
+    # TODO not even sure if I need this anymore
     setup = MockData(sweep_angle, dev_angles, x_width=width, y_width=width)
 
-    rms = rms_distance(line_energies, setup, pixel_hits)
-
-    # DEBUG
-    global count
-    if count % 100 == 0:
-        print("loss_func called with params:")
-        print(f"width: {width}")
-        print(f"sweep_angle: {sweep_angle}")
-        print(f"dev_angles: {dev_angles}")
-        print(f"rms deviations: {rms}")
-    count += 1
-
-    return rms
+    return -setup.find_azi_subtended(theta)
 
 
-def find_min_rms_params(width0, sweep_angle0, dev_angles0, line_energies, restricted_hits, fit_small_angles=True):
-
-    def loss_func_wrapper(params):
+def find_min_rms_params(width0, sweep_angle0, dev_angles0, line_energies, restricted_hits, fit_small_angles=True, full_result=False):
+    def residuals_wrapper(params):
         p_list = list(reversed(params))
 
         # these params are always fitted
@@ -246,20 +235,24 @@ def find_min_rms_params(width0, sweep_angle0, dev_angles0, line_energies, restri
         else:
             dev_angles += dev_angles0[1:]
 
-        # enforce hard bounds
-        if not validate_params(width, sweep_angle, dev_angles, line_energies):
-            return rms_loss_func(width, sweep_angle, dev_angles, line_energies, restricted_hits) * 2
-
-        return rms_loss_func(width, sweep_angle, dev_angles, line_energies, restricted_hits)
+        return residuals(width, sweep_angle, dev_angles, line_energies, restricted_hits)
 
     p0 = [width0, sweep_angle0, dev_angles0[0]]
     if fit_small_angles:
         p0 += dev_angles0[1:]
 
-    # mess around with this
-    p = fmin(loss_func_wrapper, np.array(p0))
+    bounds = [WIDTH_BOUNDS, SWEEP_BOUNDS] + DEV_ANGLE_BOUNDS
+    bounds = bounds[:len(p0)]
+    print(f"Using bounds: {bounds}")
+    flat_bounds = ([b[0] for b in bounds], [b[1] for b in bounds])
 
-    print(f"Resulting params: {p}")
+    res = least_squares(residuals_wrapper, x0=p0, bounds=flat_bounds, jac='3-point')
+    p = res.x
+
+    # print(f"Full result: {res}")
+    # print(f"Cost: {res.cost}")
+    if full_result:
+        return res
 
     if fit_small_angles:
         return p[:5]
