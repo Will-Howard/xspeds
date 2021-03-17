@@ -146,3 +146,52 @@ def find_intersection_params(theta, a, b):
     if discrim == 0.0:
         return [(-B) / (2 * A)]
     return [(-B + np.sqrt(discrim)) / (2 * A), (-B - np.sqrt(discrim)) / (2 * A)]
+
+def restrict_hits_pixel(hits, pixel_bounds, axis='x'):
+    """TODO move this to calibration
+
+    Args:
+        hits ([type]): [description]
+        pixel_bounds ([type]): [description]
+        axis (str, optional): [description]. Defaults to 'x'.
+
+    Returns:
+        [type]: [description]
+    """
+    restricted_hits = []
+    
+    idx = 0 if axis.lower() == 'x' else 1
+    for h in hits:
+        for b in pixel_bounds:
+            if b[0] <= h[idx] <= b[1]:
+                restricted_hits.append(h)
+                break
+    return restricted_hits
+
+def pixel_hits_to_angles(model, hits):
+    """TODO move this to mock_data
+
+    Args:
+        model ([type]): [description]
+        hits ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    angle_hits = []
+    for h in hits:
+        theta, phi = model.plane_coords_to_angle(*model.pixel_to_plane_coords(h[0], h[1]))
+        angle_hits.append((theta, phi))
+    return angle_hits
+
+def plot_theta_phi(model, hits, ax=None):
+    ax = ax or plt
+    angle_hits = pixel_hits_to_angles(model, hits)
+
+    theta = [h[0] for h in angle_hits]
+    phi = [h[1] for h in angle_hits]
+
+    N = len(theta)
+    s = 1000 / N
+
+    ax.scatter(theta, phi, s=s)
