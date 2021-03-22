@@ -64,7 +64,7 @@ def find_photons(image, charge_mass_threshold_std, secondary_threshold_std=3, me
                 Then check for line, edge, box patterns"""
                 i_center, j_center = i, j
                 adj_adus = [((_i, _j), image[_i][_j]) for _i, _j in imm_adj(i, j) if not exclude[_i][_j]]
-                max_adj = max(adj_adus, key=lambda t: t[1])
+                max_adj = max(adj_adus, key=lambda t: t[1]) if len(adj_adus) > 0 else (None, -np.inf)
 
                 if max_adj[1] > image[i][j]:
                     i_center, j_center = max_adj[0]
