@@ -1,7 +1,7 @@
 from xspeds.constants import DEV_ANGLE_BOUNDS, SWEEP_BOUNDS, WIDTH_BOUNDS
 from xspeds import utils
 from scipy.optimize import minimize, least_squares
-from xspeds.mock_data import MockData
+from xspeds.experimental_setup import ExperimentalSetup
 from xspeds.spectrum import CompoundSpectrum, InterpolatedSpectrum, LineSpectrum
 import numpy as np
 
@@ -74,7 +74,7 @@ def logL_loss_func(width, sweep_angle, dev_angles, line_energies, line_intensiti
                               line_intensities[i]], [line_widths[i]])
         spectra.append(CompoundSpectrum([s_line, fit_background]))
 
-    setup = MockData(sweep_angle, dev_angles, x_width=width, y_width=width)
+    setup = ExperimentalSetup(sweep_angle, dev_angles, x_width=width, y_width=width)
 
     log_l = logL(spectra, setup, pixel_hits, pixel_bounds)
 
@@ -185,7 +185,7 @@ def find_maxL_params(width0, sweep_angle0, dev_angles0, line_intensities0, line_
 
 
 def residuals(width, sweep_angle, dev_angles, line_energies, pixel_hits, axis='x'):
-    setup = MockData(sweep_angle, dev_angles, x_width=width, y_width=width)
+    setup = ExperimentalSetup(sweep_angle, dev_angles, x_width=width, y_width=width)
     residuals = []
     for i in range(len(line_energies)):
         _lambda, hits = line_energies[i], pixel_hits[i]
@@ -216,7 +216,7 @@ def residuals(width, sweep_angle, dev_angles, line_energies, pixel_hits, axis='x
 
 def no_azi_subtended_constraint(theta, width, sweep_angle, dev_angles):
     # TODO not even sure if I need this anymore
-    setup = MockData(sweep_angle, dev_angles, x_width=width, y_width=width)
+    setup = ExperimentalSetup(sweep_angle, dev_angles, x_width=width, y_width=width)
 
     return -setup.find_azi_subtended(theta)
 

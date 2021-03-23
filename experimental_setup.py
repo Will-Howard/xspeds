@@ -7,8 +7,7 @@ import scipy.integrate as integrate
 from scipy.optimize import root_scalar
 
 
-
-class MockData:
+class ExperimentalSetup:
     _hits = []
 
     def __init__(self,
@@ -92,7 +91,8 @@ class MockData:
     def plane_coords_to_angle(self, x, y):
         # TODO vectorise this properly, but this is not a bottleneck
         if isinstance(x, np.ndarray):
-            results = [self.plane_coords_to_angle(x[i], y[i]) for i in range(len(x))]
+            results = [self.plane_coords_to_angle(
+                x[i], y[i]) for i in range(len(x))]
             theta = np.array([r[0] for r in results])
             phi = np.array([r[1] for r in results])
             return theta, phi
@@ -146,7 +146,8 @@ class MockData:
 
         dphi = 2 * np.pi * 1e-6  # FIXME is this ok?
 
-        origin_displacement = x_bounds[0] * self.plane_x + y_bounds[0] * self.plane_y
+        origin_displacement = x_bounds[0] * \
+            self.plane_x + y_bounds[0] * self.plane_y
         lower_x = [self.plane_origin + origin_displacement, self.plane_x]
         lower_y = [self.plane_origin + origin_displacement, self.plane_y]
         upper_x = [self.plane_origin + x_bounds[0] * self.plane_x +
@@ -292,7 +293,7 @@ class MockData:
         This function avoids doing the full integral by using a series of midpoint etimates
         of find_azi_subtended multiplied by differences in the spectrum cdf. It is about 10x
         faster.
-        
+
         It fails through to the full integral in the case where it can't find a
         non-zero point in find_azi_subtended.
 
@@ -312,7 +313,7 @@ class MockData:
         for x in x_bounds:
             for y in y_bounds:
                 theta, _ = self.plane_coords_to_angle(x, y)
-                #  FIXME is this guaranteed to work? 
+                #  FIXME is this guaranteed to work?
                 if self.find_azi_subtended(theta, x_bounds, y_bounds) > 0:
                     mid_point = theta
                     found = True
@@ -333,63 +334,27 @@ class MockData:
             # print(root_func(mid_point))
             return self.total_hit_probability(spectrum, x_bounds, y_bounds)
 
-        theta_low = root_scalar(root_func, bracket=[1e-4, mid_point], method='brentq').root
-        theta_high = root_scalar(root_func, bracket=[mid_point, np.pi / 2], method='brentq').root
+        theta_low = root_scalar(
+            root_func, bracket=[1e-4, mid_point], method='brentq').root
+        theta_high = root_scalar(
+            root_func, bracket=[mid_point, np.pi / 2], method='brentq').root
 
         # TODO dynamically set n_points based on how step-function-like constant find_azi_subtended is
         # TODO also dynamically set which points to sample based on where the peak is
 
-        sample_points = np.linspace(utils.theta_to_lambda(theta_high), utils.theta_to_lambda(theta_low), n_points)
+        sample_points = np.linspace(utils.theta_to_lambda(
+            theta_high), utils.theta_to_lambda(theta_low), n_points)
         midpoints = (sample_points[:-1] + sample_points[1:]) / 2
 
         sample_cdfs = np.array([spectrum.cdf(l) for l in sample_points])
         cdf_diffs = np.diff(sample_cdfs)
-        mp_frac_subtended = np.array([self.find_azi_subtended(utils.lambda_to_theta(l), x_bounds, y_bounds) / (2 * np.pi) for l in midpoints])
+        mp_frac_subtended = np.array([self.find_azi_subtended(
+            utils.lambda_to_theta(l), x_bounds, y_bounds) / (2 * np.pi) for l in midpoints])
 
         prob_product = cdf_diffs * mp_frac_subtended
         # TODO don't return as a list
         return [sum(prob_product)]
 
-    def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
-        """Generates a mock CCD image by simulating photons hitting the detector
-
-        Args:
-            spectrum (Spectrum): The wavelength spectrum
-            time (float, optional): exposure time, used along with the intensity of the spectrum
-                                    to work out how many photons to simulate. Defaults to 100.0.
-            n_photons ([type], optional): alternative to time, specifies exact number of photons
-                                          TODO make this the number that HIT the detector, rather
-                                          than the number that are simulated
-
-        Returns:
-            np.ndarray: the CCD image
-        """
-        self._hits = []
-
-        # TODO restrict the range of phi to speed things up
-        # corner_coords = [(x_displacement, y_displacement), (x_displacement, y_displacement + y_width),
-        #                  (x_displacement + x_width, y_displacement), (x_displacement + x_width, y_displacement + y_width)]
-        # corner_phis = list(map(lambda p: np.angle(p[0] + p[1]*1j, corner_coords)))
-
-        # number of points should depend on intensity
-        n_photons = n_photons or int(spectrum.total_intensity*time)
-        for _lambda in spectrum.random_sample(n_photons):
-            # theta is 90 - the Bragg angle
-            c_theta = _lambda/2  # cos(theta), _lambda is in units of d
-            # note this defines theta < pi / 2 (which is what I want)
-            s_theta = np.sqrt(1 - c_theta**2)
-
-            phi = np.random.uniform(-np.pi, np.pi)
-
-            ray = np.array(
-                [s_theta * np.cos(phi), s_theta * np.sin(phi), c_theta])
-
-            # covert to plane coords
-            x_image, y_image = self.ray_to_plane_coords(ray)
-
-            # check if sample hits detector
-            if 0 < x_image < self.x_width and 0 < y_image < self.y_width:
-                self._hits.append((x_image, y_image))
 
     def energy_curve(self, _lambda, n_points=1000):
         # theta is 90 - the Bragg angle
@@ -415,32 +380,74 @@ class MockData:
         # TODO remove artifacts due to truncation
         return x_out, y_out
 
-    def get_image(self):
-        image = np.random.normal(self.noise_mean, self.noise_std,
-                                 (IMAGE_WIDTH, IMAGE_HEIGHT))
+    # TODO remove this completely, this is now in simulation.py
+    # def run_exposure(self, spectrum: Spectrum, time=100.0, n_photons=None) -> np.ndarray:
+    #     """Generates a mock CCD image by simulating photons hitting the detector
 
-        for h in self._hits:
-            x_pixel = h[0] * self.x_pixel_conversion
-            y_pixel = h[1] * self.y_pixel_conversion
-            if self.charge_spread:
-                """
-                Charge spread: sample FIXED number (50) of points (don't vary with energy at this point)
-                from gaussian with a (uniform) random standard deviation less than 1 pixel
-                """
-                # TODO make charge spread optional + variable
-                n_samples = 50
-                std = np.random.uniform(0.0, self.charge_spread)
-                points = np.random.multivariate_normal(
-                    [x_pixel, y_pixel], std**2 * np.identity(2), n_samples)
-                for p in points:
-                    if 0 <= p[0] < self.x_pixels and 0 <= p[1] < self.y_pixels:
-                        image[int(p[0])][int(p[1])] += 1 / n_samples
-            else:
-                image[int(x_pixel)][int(y_pixel)] += 1
+    #     Args:
+    #         spectrum (Spectrum): The wavelength spectrum
+    #         time (float, optional): exposure time, used along with the intensity of the spectrum
+    #                                 to work out how many photons to simulate. Defaults to 100.0.
+    #         n_photons ([type], optional): alternative to time, specifies exact number of photons
+    #                                       TODO make this the number that HIT the detector, rather
+    #                                       than the number that are simulated
 
-        return image.T  # has to be transposed to show the right way for some reason
+    #     Returns:
+    #         np.ndarray: the CCD image
+    #     """
+    #     self._hits = []
 
-    def get_hits(self):
-        if self._hits is None:
-            raise AssertionError("Must call run_exposure before acessing hits")
-        return self._hits
+    #     # TODO restrict the range of phi to speed things up
+    #     # corner_coords = [(x_displacement, y_displacement), (x_displacement, y_displacement + y_width),
+    #     #                  (x_displacement + x_width, y_displacement), (x_displacement + x_width, y_displacement + y_width)]
+    #     # corner_phis = list(map(lambda p: np.angle(p[0] + p[1]*1j, corner_coords)))
+
+    #     # number of points should depend on intensity
+    #     n_photons = n_photons or int(spectrum.total_intensity*time)
+    #     for _lambda in spectrum.random_sample(n_photons):
+    #         # theta is 90 - the Bragg angle
+    #         c_theta = _lambda/2  # cos(theta), _lambda is in units of d
+    #         # note this defines theta < pi / 2 (which is what I want)
+    #         s_theta = np.sqrt(1 - c_theta**2)
+
+    #         phi = np.random.uniform(-np.pi, np.pi)
+
+    #         ray = np.array(
+    #             [s_theta * np.cos(phi), s_theta * np.sin(phi), c_theta])
+
+    #         # covert to plane coords
+    #         x_image, y_image = self.ray_to_plane_coords(ray)
+
+    #         # check if sample hits detector
+    #         if 0 < x_image < self.x_width and 0 < y_image < self.y_width:
+    #             self._hits.append((x_image, y_image))
+
+    # def get_image(self):
+    #     image = np.random.normal(self.noise_mean, self.noise_std,
+    #                              (IMAGE_WIDTH, IMAGE_HEIGHT))
+
+    #     for h in self._hits:
+    #         x_pixel = h[0] * self.x_pixel_conversion
+    #         y_pixel = h[1] * self.y_pixel_conversion
+    #         if self.charge_spread:
+    #             """
+    #             Charge spread: sample FIXED number (50) of points (don't vary with energy at this point)
+    #             from gaussian with a (uniform) random standard deviation less than 1 pixel
+    #             """
+    #             # TODO make charge spread optional + variable
+    #             n_samples = 50
+    #             std = np.random.uniform(0.0, self.charge_spread)
+    #             points = np.random.multivariate_normal(
+    #                 [x_pixel, y_pixel], std**2 * np.identity(2), n_samples)
+    #             for p in points:
+    #                 if 0 <= p[0] < self.x_pixels and 0 <= p[1] < self.y_pixels:
+    #                     image[int(p[0])][int(p[1])] += 1 / n_samples
+    #         else:
+    #             image[int(x_pixel)][int(y_pixel)] += 1
+
+    #     return image.T  # has to be transposed to show the right way for some reason
+
+    # def get_hits(self):
+    #     if self._hits is None:
+    #         raise AssertionError("Must call run_exposure before acessing hits")
+    #     return self._hits

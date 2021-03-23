@@ -3,14 +3,14 @@ from xspeds.constants import IMAGE_HEIGHT, IMAGE_WIDTH
 from xspeds.tests.test_spectrum import get_test_compound_spectrum
 from xspeds.spectrum import LineSpectrum
 from xspeds import utils
-from xspeds.mock_data import MockData
+from xspeds.experimental_setup import ExperimentalSetup
 import numpy as np
 import scipy.integrate as integrate
 
 
 def test_coord_conversion():
     w = 1.0
-    m = MockData(sweep_angle=0.0, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.0, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=1.0, noise_std=0.2)
 
     for _ in range(100):
@@ -38,7 +38,7 @@ def test_azi_subtended():
 
     cone_angle = 0.8
     w = 0.2
-    m = MockData(sweep_angle=0.8, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.8, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
     calc_angle = m.find_azi_subtended(cone_angle)
@@ -48,7 +48,7 @@ def test_azi_subtended():
     # ring entirely inside
     cone_angle = 0.2
     w = 1.0
-    m = MockData(sweep_angle=0.0, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.0, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
     calc_angle = m.find_azi_subtended(cone_angle)
@@ -57,7 +57,7 @@ def test_azi_subtended():
     # cone entirely outside
     cone_angle = 0.8
     w = 0.2
-    m = MockData(sweep_angle=0.0, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.0, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
     calc_angle = m.find_azi_subtended(cone_angle)
@@ -68,7 +68,7 @@ def test_azi_subtended():
 
 def test_total_hit_prob():
     w = 0.2
-    m = MockData(sweep_angle=0.8, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.8, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
     # TODO use a less easy example
@@ -90,7 +90,7 @@ def test_total_hit_prob():
 
 def test_J():
     w = 0.2
-    m = MockData(sweep_angle=0.8, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.8, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
     x = np.random.uniform(0.0, 0.2)
@@ -105,7 +105,7 @@ def test_J():
 
 def test_pdf_vectorisation():
     w = 0.2
-    m = MockData(sweep_angle=0.8, deviation_angles=[
+    m = ExperimentalSetup(sweep_angle=0.8, deviation_angles=[
                  0.0, 0.0, 0.0], x_width=w, y_width=w, noise_mean=0.0, noise_std=0.0)
 
     spectrum = get_test_compound_spectrum()

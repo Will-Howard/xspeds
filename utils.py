@@ -169,7 +169,7 @@ def restrict_hits_pixel(hits, pixel_bounds, axis='x'):
     return restricted_hits
 
 def pixel_hits_to_angles(model, hits):
-    """TODO move this to mock_data
+    """TODO move this to experimental_setup
 
     Args:
         model ([type]): [description]
