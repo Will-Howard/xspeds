@@ -1,5 +1,7 @@
+from xspeds.spectrum import InterpolatedSpectrum
 import numpy as np
 import matplotlib.pyplot as plt
+from opensimplex.opensimplex import OpenSimplex
 
 def sph_to_cart(v):
     """Convert spherical polar coordinates to cartesian
@@ -52,7 +54,7 @@ def lambda_to_theta(_lambda):
     return np.arccos(_lambda / 2)
 
 
-def plot_histogram(im, n_bins=100, ax=None):
+def plot_image_histogram(im, n_bins=100, ax=None):
     pixel_min = min([min(r) for r in im])
     pixel_max = max([max(r) for r in im])
     d = (pixel_max - pixel_min) / n_bins
@@ -195,3 +197,53 @@ def plot_theta_phi(model, hits, ax=None):
     s = 1000 / N
 
     ax.scatter(theta, phi, s=s)
+
+def generate_noise_spectrum(base_intensity=1.0, feature_scale=0.2):
+    points = []
+    noise = OpenSimplex()
+
+    for l in np.linspace(0, 2, 200):
+        intensity = base_intensity
+        intensity += base_intensity * noise.noise2d(l / feature_scale, 0.0)
+        intensity += 0.5 * base_intensity * abs(noise.noise2d((2 * l) / feature_scale, 0.0))
+        intensity = abs(intensity)
+        points.append((l, intensity))
+
+    return InterpolatedSpectrum(points)
+
+def plot_spectrum_hist(x, hit_probs, n_bins=50, count_weights=None, ax=None):
+    """Plot a histogram of the 
+
+    Args:
+        x ([type]): Independent variable of the spectrum, e.g. wavelength or energy
+        hit_probs ([type]): For each item in x, this is the probability for that particular photon to 
+        be detected. This is used to weight each hit (photons which were less likely to hit get a higher weight)
+        count_weights ([type], optional): For each item in x, this should be proportional to the
+        number of photons this hit represents. For SPC this will be 1, but for an intensity based
+        spectrum it will be the intensity at that pixel
+        ax ([type], optional): axis to plot on
+    """
+    ax = ax or plt
+    N = len(x)
+
+    if count_weights is None:
+        count_weights = np.full(N, 1)
+    else:
+        count_weights = np.array(count_weights)
+    weights = (1 / np.array(hit_probs)) * count_weights
+    
+    sort_idxs = sorted(range(N), key=lambda i: x[i])
+    x_sort = [x[i] for i in sort_idxs]
+    weight_sort = [weights[i] for i in sort_idxs]
+    count_weight_sort = [count_weights[i] for i in sort_idxs]
+
+    ax.hist(x_sort, bins=n_bins, histtype=u'step', density=True, label="Histogram of detected photons", weights=weight_sort)
+
+    y, bin_edges = np.histogram(x_sort, bins=n_bins, weights=weight_sort, density=True)
+    y_unweighted, _ = np.histogram(x_sort, bins=n_bins, weights=count_weight_sort)
+    bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2
+    errors = np.sqrt(y_unweighted) * (y / y_unweighted)  # poisson standard error in normal limit
+    ax.errorbar(bin_centers, y, yerr=errors, ecolor='black', elinewidth=1, color='none')
+
+    return bin_centers, y, errors
+    

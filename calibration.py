@@ -113,17 +113,17 @@ def logL_loss_func(width, sweep_angle, dev_angles, line_energies, line_intensiti
             pass
 
     # DEBUG
-    global count
-    if count % 100 == 0:
-        print("loss_func called with params:")
-        print(f"width: {width}")
-        print(f"sweep_angle: {sweep_angle}")
-        print(f"dev_angles: {dev_angles}")
-        print(f"intensities: {line_intensities}")
-        print(f"line_widths: {line_widths}")
-        print(f"Log likelihood: {log_l}")
-        print(f"Loss function: {-log_l + penalty}")
-    count += 1
+    # global count
+    # if count % 100 == 0:
+    #     print("loss_func called with params:")
+    #     print(f"width: {width}")
+    #     print(f"sweep_angle: {sweep_angle}")
+    #     print(f"dev_angles: {dev_angles}")
+    #     print(f"intensities: {line_intensities}")
+    #     print(f"line_widths: {line_widths}")
+    #     print(f"Log likelihood: {log_l}")
+    #     print(f"Loss function: {-log_l + penalty}")
+    # count += 1
 
     return -log_l + penalty
 
@@ -162,6 +162,7 @@ def find_maxL_params(width0, sweep_angle0, dev_angles0, line_intensities0, line_
 
         return logL_loss_func(width, sweep_angle, dev_angles, line_energies, line_intensities, line_widths, restricted_hits, pixel_bounds)
 
+    dev_angles0 = list(dev_angles0)
     p0 = [width0, sweep_angle0, dev_angles0[0]]
     if fit_small_angles:
         p0 += dev_angles0[1:]
@@ -173,8 +174,8 @@ def find_maxL_params(width0, sweep_angle0, dev_angles0, line_intensities0, line_
     res = minimize(loss_func_wrapper, np.array(p0), method="Nelder-Mead", jac="3-point")
     p = res.x
 
-    print(f"Full result: {res}")
-    print(f"Resulting params: {p}")
+    # print(f"Full result: {res}")
+    # print(f"Resulting params: {p}")
     if return_all:
         return p
 
@@ -221,7 +222,7 @@ def no_azi_subtended_constraint(theta, width, sweep_angle, dev_angles):
     return -setup.find_azi_subtended(theta)
 
 
-def find_min_rms_params(width0, sweep_angle0, dev_angles0, line_energies, restricted_hits, fit_small_angles=True, full_result=False):
+def find_least_squares_params(width0, sweep_angle0, dev_angles0, line_energies, restricted_hits, fit_small_angles=True, full_result=False):
     def residuals_wrapper(params):
         p_list = list(reversed(params))
 
@@ -243,7 +244,7 @@ def find_min_rms_params(width0, sweep_angle0, dev_angles0, line_energies, restri
 
     bounds = [WIDTH_BOUNDS, SWEEP_BOUNDS] + DEV_ANGLE_BOUNDS
     bounds = bounds[:len(p0)]
-    print(f"Using bounds: {bounds}")
+    # print(f"Using bounds: {bounds}")
     flat_bounds = ([b[0] for b in bounds], [b[1] for b in bounds])
 
     res = least_squares(residuals_wrapper, x0=p0, bounds=flat_bounds, jac='3-point')

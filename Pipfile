@@ -18,6 +18,7 @@ pytest = "*"
 pytest-cov = "*"
 sklearn = "*"
 autograd = "*"
+opensimplex = "*"
 
 [requires]
 python_version = "3.8"

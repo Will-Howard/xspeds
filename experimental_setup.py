@@ -20,7 +20,13 @@ class ExperimentalSetup:
                  noise_mean=0,
                  noise_std=0,
                  charge_spread=0.0,
+                 angle_tolerance=(1 / np.pi),
                  ):
+        self.angle_tolerance = angle_tolerance
+        # this is the normalising factor for a lorenzian anglular transmission function
+        # with width angle_tolerance
+        self.max_p_transmission = angle_tolerance * np.pi
+
         self.geometry_setup(sweep_angle, deviation_angles, x_width, y_width)
         self.detector_setup(x_pixels, y_pixels, noise_mean,
                             noise_std, charge_spread)
@@ -63,6 +69,25 @@ class ExperimentalSetup:
 
         self.x_pixel_conversion = self.x_pixels/self.x_width
         self.y_pixel_conversion = self.y_pixels/self.y_width
+
+    def p_transmission(self, _lambda):
+        """probability (up to constant factor) of a photon of this wavelength being transmitted
+        by the crystal
+
+        Args:
+            lambda ([type]): wavelength
+        """
+        return np.abs(self.max_p_transmission * np.sin(utils.lambda_to_theta(_lambda)))
+
+    def overall_hit_prob(self, _lambda):
+        """probability (up to constant factor) that a photon of this wavelength will be transmitted,
+        reach the detector and (TODO) be detected
+
+        Args:
+            lambda ([type]): wavelength
+        """
+        theta = utils.lambda_to_theta(_lambda)
+        return np.abs(self.max_p_transmission * np.sin(theta)) * self.find_azi_subtended(theta)
 
     def ray_to_plane_coords(self, ray):
         """get the x, y coordinates of where the ray intersects the image plane (in the plane coordinates)
@@ -271,7 +296,8 @@ class ExperimentalSetup:
             if total_angle == 0.0:
                 return 0.0
             else:
-                return (total_angle / (2 * np.pi)) * spectrum.pdf(_lambda)
+                # TODO the p_transmission factor makes this not normalise to 1, also it hasn't been tested very thoroughly
+                return (total_angle / (2 * np.pi)) * spectrum.pdf(_lambda) * self.p_transmission(_lambda)
 
         # roughly where the azimuth subtended goes from zero to non-zero
         # without these it will think the function is 0 everywhere
@@ -350,8 +376,9 @@ class ExperimentalSetup:
         cdf_diffs = np.diff(sample_cdfs)
         mp_frac_subtended = np.array([self.find_azi_subtended(
             utils.lambda_to_theta(l), x_bounds, y_bounds) / (2 * np.pi) for l in midpoints])
+        trans_probs = self.p_transmission(midpoints)
 
-        prob_product = cdf_diffs * mp_frac_subtended
+        prob_product = cdf_diffs * mp_frac_subtended * trans_probs
         # TODO don't return as a list
         return [sum(prob_product)]
 

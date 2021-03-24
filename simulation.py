@@ -2,6 +2,7 @@
 
 from xspeds.experimental_setup import ExperimentalSetup
 from xspeds.spectrum import Spectrum
+from xspeds import utils
 import numpy as np
 from copy import deepcopy
 
@@ -10,11 +11,12 @@ class Simulation:
     _hit_lambdas = None
     has_run = False
 
-    def __init__(self, setup: ExperimentalSetup, spectrum: Spectrum, time=100.0, n_photons=None):
+    def __init__(self, setup: ExperimentalSetup, spectrum: Spectrum, time=100.0, n_photons=None, sim_angular_error=False):
+        # TODO use sim_angular_error
         self._setup = setup
         self._spectrum = spectrum
         if n_photons is None:
-            self.n_photons = int(spectrum.total_intensity * time)
+            self.n_photons = int(spectrum.total_intensity * time * setup.max_p_transmission)
         else:
             self.n_photons = n_photons
     
@@ -46,19 +48,18 @@ class Simulation:
 
         # number of points should depend on intensity
         # TODO IMPORTANT add sin(theta) weight here
-        for _lambda in spectrum.random_sample(self.n_photons):
-            # theta is 90 - the Bragg angle
-            c_theta = _lambda/2  # cos(theta), _lambda is in units of d
-            # note this defines theta < pi / 2 (which is what I want)
-            s_theta = np.sqrt(1 - c_theta**2)
+        lambdas = np.array(spectrum.random_sample(self.n_photons))
+        trans_probs = setup.p_transmission(lambdas) / setup.max_p_transmission
+        accepted_lambdas = lambdas[np.random.uniform(0, 1, self.n_photons) < trans_probs]
+        thetas = utils.lambda_to_theta(accepted_lambdas)
 
+        for i in range(len(accepted_lambdas)):
+            _lambda = accepted_lambdas[i]
+            theta = thetas[i]
             phi = np.random.uniform(-np.pi, np.pi)
 
-            ray = np.array(
-                [s_theta * np.cos(phi), s_theta * np.sin(phi), c_theta])
-
             # covert to plane coords
-            x_image, y_image = self._setup.ray_to_plane_coords(ray)
+            x_image, y_image = self._setup.angle_to_plane_coords(theta, phi)
 
             # check if sample hits detector
             if 0 < x_image < setup.x_width and 0 < y_image < setup.y_width:

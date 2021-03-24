@@ -1,11 +1,10 @@
 import numpy as np
-from scipy.optimize import Bounds
-# IMAGE_HEIGHT = 2048
-# IMAGE_WIDTH = 2048
+IMAGE_HEIGHT = 2048
+IMAGE_WIDTH = 2048
 
 # smaller image for testing
-IMAGE_HEIGHT = 128
-IMAGE_WIDTH = 128
+# IMAGE_HEIGHT = 256
+# IMAGE_WIDTH = 256
 
 X_HAT, Y_HAT, Z_HAT = np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1])
 

@@ -18,7 +18,7 @@ class Spectrum:
         Returns:
             generator: [description]
         """
-        return (self.inv_cdf(np.random.uniform()) for _ in range(n))
+        return [self.inv_cdf(np.random.uniform()) for _ in range(n)]
 
     def intensity(self, _lambda):
         pass
